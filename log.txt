@@ -1,0 +1,23 @@
+[1/5] cd /mnt/c/Users/JT/Documents/esp_projects/esp_cam/build/esp-idf/partition_table && /usr/bin/cmake -E echo "Partition table binary generated. Contents:" && /usr/bin/cmake -E echo "*******************************************************************************" && /home/jalen/.espressif/python_env/idf4.2_py2.7_env/bin/python /home/jalen/esp/esp-idf/components/partition_table/gen_esp32part.py -q --offset 0x8000 --flash-size 4MB /mnt/c/Users/JT/Documents/esp_projects/esp_cam/build/partition_table/partition-table.bin && /usr/bin/cmake -E echo "*******************************************************************************"
+Partition table binary generated. Contents:
+*******************************************************************************
+# Espressif ESP32 Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,1M,
+*******************************************************************************
+[2/5] Performing build step for 'bootloader'
+ninja: no work to do.
+[2/3] cd /home/jalen/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH="/home/jalen/esp/esp-idf" -D ESPTOOLPY="/home/jalen/.espressif/python_env/idf4.2_py2.7_env/bin/python /home/jalen/esp/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32" -D ESPTOOL_ARGS="--before=default_reset --after=hard_reset write_flash @flash_args" -D WORKING_DIRECTORY="/mnt/c/Users/JT/Documents/esp_projects/esp_cam/build" -P /home/jalen/esp/esp-idf/components/esptool_py/run_esptool.cmake
+esptool.py --chip esp32 -p /dev/ttyS99 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 4MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 esp-camera.bin
+esptool.py v3.0-dev
+Serial port /dev/ttyS99
+FAILED: CMakeFiles/flash 
+cd /home/jalen/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH="/home/jalen/esp/esp-idf" -D ESPTOOLPY="/home/jalen/.espressif/python_env/idf4.2_py2.7_env/bin/python /home/jalen/esp/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32" -D ESPTOOL_ARGS="--before=default_reset --after=hard_reset write_flash @flash_args" -D WORKING_DIRECTORY="/mnt/c/Users/JT/Documents/esp_projects/esp_cam/build" -P /home/jalen/esp/esp-idf/components/esptool_py/run_esptool.cmake
+ninja: build stopped: subcommand failed.
+Executing action: flash
+Choosing default port /dev/ttyS99 (use '-p PORT' option to set a specific serial port)
+Running ninja in directory /mnt/c/Users/JT/Documents/esp_projects/esp_cam/build
+Executing "ninja flash"...
+ninja failed with exit code 1
