@@ -92,11 +92,8 @@ void app_main(void)
     delete(sta_list);
 }
 
-void get_client(wifi_sta_list_t *sta){
-    esp_err_t err;
-    if((err = esp_wifi_ap_get_sta_list(sta)) != ESP_OK){
-         cout << "Error getting station lists: " << "" << endl;
-    }
+void get_client(wifi_sta_list_t *sta){ //NOTE: Purpose of this function is to use the sta->num to get active clients and put it in sta
+    ESP_ERROR_CHECK( esp_wifi_ap_get_sta_list(sta) );
 }
 void start_softap_wifi(){
     ESP_ERROR_CHECK( esp_netif_init() ); // sets up tcp/ip
