@@ -1,0 +1,171 @@
+//C extensions
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <cstring>
+
+//CPP extensions
+#include <iostream>
+
+//esp
+#include <esp_log.h>
+#include <esp_netif.h>
+
+//src components
+#include "camera.h"
+#include "wifi.h"
+#include "_debug.h"
+#include "socket.h"
+
+//comps
+#include "camera_fb_t.pb.h"
+
+
+//DEBUG 
+#include <pb_decode.h>
+
+using namespace std;
+
+#define PB_BUF_LEN 128
+//Vars
+
+extern "C" { // functions that "C" can see
+    //telnet
+
+    //normal
+    void nvs_flash_init(void);
+    esp_err_t esp_netif_init(void);
+    
+    size_t sizeof_stream(CAMERA_FB_TYPE_Camera_fb_t*);
+    void set_proto_cam(camera_fb_t* fb, CAMERA_FB_TYPE_Camera_fb_t* proto_cam);
+    void app_main(void);
+}
+void app_main(void)
+{
+    wifi_sta_list_t sta_list;
+     // initializations
+    nvs_flash_init(); // ??
+    camera_config(); // starts camera
+    start_softap_wifi(); // starts wifi connection
+    
+    //protobuf
+    uint8_t pb_buf[PB_BUF_LEN];
+    CAMERA_FB_TYPE_Camera_fb_t proto_cam = CAMERA_FB_TYPE_Camera_fb_t_init_zero;
+    pb_ostream_t pb_stream = pb_ostream_from_buffer(pb_buf, sizeof(pb_buf));
+
+    
+    //pointer to camera frame buffer
+    camera_fb_t *fb = nullptr;
+
+   
+    //sockets
+    descriptor_t descriptor = init_socket();
+    while (1) {
+        get_client(&sta_list); // get active clients
+        while(sta_list.num > 0){ // once clients disconnect, shut off camera
+            //NOTE: here -> tel = telnet_init(telops, telnet_event_handler, 0, buf);
+            fb = esp_camera_fb_get();
+            if(!fb){
+                ESP_LOGE(ERROR_TAG, "Camera Capture Failed");
+                return;
+            } else{
+                
+               
+                set_proto_cam(fb, &proto_cam); //sets values
+                if(pb_encode(&pb_stream, CAMERA_FB_TYPE_Camera_fb_t_fields, &proto_cam)){ // result is stored in pb_buf above
+                    ESP_LOGI(INFO_TAG, "len: %d, data: %s, sizeof: %d", proto_cam.len, fb->buf, sizeof(int)/sizeof(fb->buf));
+                    
+                    ESP_LOGI(INFO_TAG, "Address %s ", descriptor.ip);
+                    sendto(descriptor.sock, &pb_buf, pb_stream.bytes_written,
+                     0, (struct sockaddr *) &descriptor.addr, descriptor.ip_len); //send as buffer
+                }else{
+                    ESP_LOGE(ERROR_TAG, "Could not encode the variable proto_cam! %s", pb_stream.errmsg);
+                }
+
+                ESP_LOGI(INFO_TAG, "Sent message!");
+                vTaskDelay(1000 / portTICK_PERIOD_MS); // 1S DELAY
+            }
+            /* NOTE: DEBUG // decoded stream */
+                pb_istream_t pb_stream2 = pb_istream_from_buffer(pb_buf, sizeof(pb_buf));
+                memset(&proto_cam, 0, sizeof(proto_cam));
+                if(pb_decode(&pb_stream2, CAMERA_FB_TYPE_Camera_fb_t_fields, &proto_cam)){
+                    printf("%s len: %d\n", DEBUG_TAG, proto_cam.len);
+                    printf("%s width: %d\n", DEBUG_TAG, proto_cam.width);
+                    printf("%s height: %d\n", DEBUG_TAG, proto_cam.height);
+                }else{
+                    ESP_LOGE(ERROR_TAG, "Could not decode -> %s", pb_stream2.errmsg);
+                };
+                
+            /* DEBUG HERE  */
+            esp_camera_fb_return(fb);
+            fb = nullptr;
+            memset(pb_buf, 0, sizeof(pb_buf));
+            memset(&pb_stream, 0, sizeof(pb_stream));
+            get_client(&sta_list); // get active clients
+        }
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+}
+/*
+size_t sizeof_stream(CAMERA_FB_TYPE_Camera_fb_t* proto){
+    pb_ostream_t sizestream = {0};
+    pb_encode(&sizestream, CAMERA_FB_TYPE_Camera_fb_t_fields, proto);
+    return (size_t) sizestream.bytes_written;
+}
+bool write_string(pb_ostream_t *stream, const pb_field_iter_t *field, void * const *arg)
+{
+    size_t n = sizeof(uint8_t)/sizeof((uint8_t*) *arg); // gets length of fb->buf
+
+    uint8_t * str =  (uint8_t*) arg; // fb->buf
+    if (!pb_encode_tag_for_field(stream, field))
+        return false;
+
+    return pb_encode_string(stream, str, n);
+}
+bool read_ints(pb_istream_t *stream, const pb_field_iter_t *field, void **arg)
+{
+   
+    uint64_t value;
+    if (!pb_decode_varint(stream, &value))
+        return false;
+    ESP_LOGI(DEBUG_TAG, "value: %d", (uint8_t) value);
+    return true;
+}*/
+/*
+bool read_ints(pb_istream_t *stream, const pb_field_iter_t *field, void **arg)
+{
+        uint64_t value;
+        if (!pb_decode_varint(stream, &value))
+            return false;
+        if(arg){
+            *((uint8_t *) *arg) = (uint8_t) value;
+            ESP_LOGI(DEBUG_TAG, "arg: %d", *((uint8_t *) *arg));
+        }
+        
+        if(arg){
+            while(stream->bytes_left){
+                if (!pb_decode_varint(stream, &value))
+                    return false;
+                *((uint8_t *) *arg + i) = (uint8_t) value;
+                i++;
+                ESP_LOGI(DEBUG_TAG, "arg is %d", *((uint8_t *) *arg + i));
+            }
+        } else {
+            if (!pb_decode_varint(stream, &value))
+                return false;
+        }
+    return true;
+}*/
+void set_proto_cam(camera_fb_t* fb, CAMERA_FB_TYPE_Camera_fb_t* proto_cam){
+    /*if(!pb_encode_tag_for_field(pb_stream, CAMERA_FB_TYPE_Camera_fb_t_buf_tag){
+        
+    }*/
+    //proto_cam->buf.funcs.encode      = &write_string; // callback function for handling repeated fields; is called back when pb_encode() is invoked on this object
+    //proto_cam->buf.funcs.decode = &read_ints;
+    proto_cam->buf.arg = fb->buf; // is used in the write_string() callback;
+    proto_cam->format   = (int) fb->format; // just an enum converted to an int
+    proto_cam->height   = fb->height;
+    proto_cam->width    = fb->width;
+    proto_cam->len      = fb->len;
+    return;
+}

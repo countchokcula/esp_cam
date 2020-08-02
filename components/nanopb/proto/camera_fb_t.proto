@@ -1,0 +1,11 @@
+syntax = "proto2";
+package CAMERA_FB_TYPE;
+
+message Camera_fb_t {
+    repeated int32 buf = 1;
+    optional int32 len = 2;
+    optional int32 height = 3;
+    optional int32 width = 4;
+    optional int32 format = 5;
+
+}
